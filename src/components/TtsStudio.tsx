@@ -40,8 +40,12 @@ const PRESETS = [
   { label: "RU · Приветствие", text: "Привет! Это демонстрация синтеза речи на базе Microsoft Edge TTS." },
   { label: "EN · Greeting", text: "Hello! This is a text-to-speech demo powered by Microsoft Edge." },
   {
-    label: "Сказка",
-    text: "В некотором царстве, в некотором государстве жил-был царь. И было у него три сына: старший — умный был детина, средний — был так и сяк, младший — вовсе был дурак.",
+    label: "Ударения",
+    text: "Открой за\u0301мок. А теперь возьми молото\u0301к и слома\u0301й замо\u0301к на двери\u0301.",
+  },
+  {
+    label: "Паузы",
+    text: "Внимание\u23f8 это важное сообщение\u23f8 пожалуйста\u23f8 дослушайте до конца.",
   },
 ];
 
@@ -300,6 +304,28 @@ export default function TtsStudio() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const STRESS = "\u0301"; // ´ — знак ударения над гласной
+  const PAUSE = "\u23F8"; // ⏸ — символ паузы
+
+  // Вставляет спецсимвол в текущую позицию курсора в текстовом поле.
+  const insertMark = useCallback(
+    (mark: string) => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const candidate = text.slice(0, start) + mark + text.slice(end);
+      if (candidate.length > MAX_CHARS) return;
+      setText(candidate);
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + mark.length;
+      });
+    },
+    [text],
+  );
 
   // Load voices + history on mount.
   useEffect(() => {
@@ -415,12 +441,36 @@ export default function TtsStudio() {
         </label>
         <div className="relative">
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
             rows={8}
             placeholder="Введите или вставьте текст здесь…"
             className="tts-scroll w-full resize-y rounded-2xl border border-white/10 bg-black/20 p-4 text-[15px] leading-relaxed text-white placeholder:text-white/30 outline-none transition focus:border-indigo-400/60"
           />
+        </div>
+
+        {/* Панель управления произношением: ударения и паузы */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => insertMark(STRESS)}
+            title="Поставьте курсор сразу после нужной гласной и нажмите"
+            className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/30 bg-indigo-500/15 px-3 py-1 text-xs font-medium text-indigo-200 transition hover:bg-indigo-500/25"
+          >
+            <span className="text-base leading-none">а́</span> Ударение
+          </button>
+          <button
+            type="button"
+            onClick={() => insertMark(PAUSE)}
+            title="Вставить паузу в позиции курсора"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+          >
+            <span className="text-base leading-none">⏸</span> Пауза
+          </button>
+          <span className="text-xs text-white/35">
+            Курсор после гласной → «Ударение» (за́мок / замо́к)
+          </span>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">

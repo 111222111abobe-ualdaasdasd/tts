@@ -87,13 +87,23 @@ function sanitizeText(input: string): string {
   return out;
 }
 
+const PAUSE_MARK = "\u23F8"; // ⏸ — символ паузы, который вставляет пользователь
+
 function mkSsml(opts: SynthOptions, text: string): string {
-  const safe = escapeXml(sanitizeText(text));
+  // Тег <break> не работает в неофициальном протоколе Edge TTS (вызывает
+  // зависание), поэтому паузу делаем через разбиение текста: между частями
+  // ставим многоточие — нейронный голос делает на нём слышимую паузу.
+  // Каждую часть экранируем отдельно, чтобы пользователь не мог внедрить
+  // свои SSML-теги. Знаки ударения (U+0301) проходят как есть.
+  const parts = text.split(PAUSE_MARK).map((p) => p.trim()).filter(Boolean);
+  const body = parts
+    .map((p) => escapeXml(sanitizeText(p)))
+    .join(" … ");
   return (
     "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>" +
     `<voice name='${opts.voice}'>` +
     `<prosody pitch='${opts.pitch}' rate='${opts.rate}' volume='${opts.volume}'>` +
-    safe +
+    body +
     "</prosody></voice></speak>"
   );
 }
