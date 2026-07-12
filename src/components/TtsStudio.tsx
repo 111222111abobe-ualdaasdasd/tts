@@ -325,8 +325,12 @@ export default function TtsStudio() {
         if (!cancelled) setVoicesError(true);
       }
       if (hRes.ok) {
-        const hJson = await hRes.json();
-        if (!cancelled) setHistory(hJson.items ?? []);
+        try {
+          const hJson = await hRes.json();
+          if (!cancelled) setHistory(hJson.items ?? []);
+        } catch {
+          /* ignore malformed history response */
+        }
       }
     })();
     return () => {
@@ -362,11 +366,23 @@ export default function TtsStudio() {
           volume,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || "Не удалось сгенерировать аудио.");
+      // Ответ может прийти не в формате JSON (например, HTML-страница ошибки
+      // от Netlify при таймауте 10 сек). Парсим аккуратно, без выброса.
+      let json: Record<string, unknown> | null = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
       }
-      const item = json as HistoryItem;
+      if (!res.ok || !json) {
+        const errMsg =
+          (typeof json?.error === "string" && json.error) ||
+          (res.status === 502 || res.status === 504
+            ? "Служба синтеза не успела ответить за отведённое время (лимит Netlify — 10 сек). Попробуйте текст короче."
+            : `Служба недоступна (статус ${res.status}). Попробуйте ещё раз.`);
+        throw new Error(errMsg);
+      }
+      const item = json as unknown as HistoryItem;
       setCurrent(item);
       setHistory((prev) => [item, ...prev.filter((h) => h.id !== item.id)].slice(0, 50));
       setStatus("idle");

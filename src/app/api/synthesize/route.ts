@@ -92,30 +92,45 @@ export async function POST(req: NextRequest) {
   const voiceName =
     (await getVoices()).find((v) => v.shortName === voice)?.name ?? voice;
 
-  const [inserted] = await db
-    .insert(ttsItems)
-    .values({
-      text,
-      voice,
-      voiceName,
-      rate: String(rate),
-      pitch: String(pitch),
-      volume: String(volume),
-      durationMs,
-      audio: audioBuffer,
-    })
-    .returning({ id: ttsItems.id, createdAt: ttsItems.createdAt });
+  let insertedId: number;
+  let insertedAt: Date;
+  try {
+    const [inserted] = await db
+      .insert(ttsItems)
+      .values({
+        text,
+        voice,
+        voiceName,
+        rate: String(rate),
+        pitch: String(pitch),
+        volume: String(volume),
+        durationMs,
+        audio: audioBuffer,
+      })
+      .returning({ id: ttsItems.id, createdAt: ttsItems.createdAt });
+    insertedId = inserted!.id;
+    insertedAt = inserted!.createdAt;
 
-  // Keep history bounded — remove anything outside the most recent N entries.
-  const keepIds = db
-    .select({ id: ttsItems.id })
-    .from(ttsItems)
-    .orderBy(desc(ttsItems.id))
-    .limit(MAX_HISTORY);
-  await db.delete(ttsItems).where(not(inArray(ttsItems.id, keepIds)));
+    // Keep history bounded — remove anything outside the most recent N entries.
+    const keepIds = db
+      .select({ id: ttsItems.id })
+      .from(ttsItems)
+      .orderBy(desc(ttsItems.id))
+      .limit(MAX_HISTORY);
+    await db.delete(ttsItems).where(not(inArray(ttsItems.id, keepIds)));
+  } catch (dbErr) {
+    console.error("[/api/synthesize] database error:", dbErr);
+    return NextResponse.json(
+      {
+        error:
+          "Не удалось сохранить в базу данных. Проверьте DATABASE_URL: для Supabase используйте порт 5432 (session pooler) вместо 6543.",
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
-    id: inserted!.id,
+    id: insertedId,
     text,
     voice,
     voiceName,
@@ -123,7 +138,7 @@ export async function POST(req: NextRequest) {
     pitch: String(pitch),
     volume: String(volume),
     durationMs,
-    createdAt: inserted!.createdAt,
+    createdAt: insertedAt,
     size: audioBuffer.length,
   });
 }
