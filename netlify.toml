@@ -1,0 +1,15 @@
+# Конфигурация деплоя на Netlify для Next.js (App Router).
+# Плагин @netlify/plugin-nextjs определяется и ставится автоматически.
+
+[build]
+  command = "next build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_TELEMETRY_DISABLED = "1"
+  # Netlify собирает обычную сборку (не standalone)
+  BUILD_STANDALONE = "false"
+
+# Свежая версия Node.js для сборки
+[functions]
+  node_bundler = "esbuild"

@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tts_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tts
+      POSTGRES_PASSWORD: tts
+      POSTGRES_DB: tts
+    volumes:
+      - tts_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tts -d tts"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: tts_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Сайт будет доступен на 80 порту сервера по обычному http://IP-АДРЕС
+      - "80:3000"
+    environment:
+      DATABASE_URL: postgresql://tts:tts@db:5432/tts?sslmode=disable
+      NODE_ENV: production
+
+volumes:
+  tts_pgdata:
