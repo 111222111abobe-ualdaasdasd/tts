@@ -29,7 +29,9 @@ export async function GET(
   const headers = new Headers();
   headers.set("Content-Type", "audio/mpeg");
   headers.set("Content-Length", String(audio.length));
-  headers.set("Cache-Control", "public, max-age=86400");
+  // Запрещаем кэширование: номера записей могут повторно использоваться
+  // (например, после очистки базы), и браузер не должен подсовывать старый звук.
+  headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   headers.set("Content-Disposition", `inline; filename="speech-${numId}.mp3"`);
 
   return new NextResponse(audio as unknown as BodyInit, { headers });

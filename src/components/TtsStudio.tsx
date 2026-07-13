@@ -432,6 +432,18 @@ export default function TtsStudio() {
     }
   }, []);
 
+  // Полная очистка истории. Номера в БД НЕ сбрасываются, чтобы браузерный
+  // кэш аудио по старым номерам не наложился на новые записи.
+  const handleClearAll = useCallback(async () => {
+    setHistory([]);
+    setCurrent(null);
+    try {
+      await fetch(`/api/history/all`, { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       {/* Left: editor */}
@@ -564,8 +576,8 @@ export default function TtsStudio() {
               <div className="mb-4 rounded-2xl border border-white/10 bg-black/30 p-3">
                 <audio
                   ref={audioRef}
-                  key={current.id}
-                  src={`/api/audio/${current.id}`}
+                  key={`${current.id}-${current.createdAt}`}
+                  src={`/api/audio/${current.id}?v=${encodeURIComponent(current.createdAt)}`}
                   controls
                   className="w-full"
                 />
@@ -583,7 +595,7 @@ export default function TtsStudio() {
                 {current.text}
               </p>
               <a
-                href={`/api/audio/${current.id}?download=1`}
+                href={`/api/audio/${current.id}?download=1&v=${encodeURIComponent(current.createdAt)}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
               >
                 ⬇ Скачать MP3
@@ -600,9 +612,28 @@ export default function TtsStudio() {
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl sm:p-7">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white/50">
-            История
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50">
+              История
+            </h2>
+            {history.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Удалить ВСЮ историю? Это действие нельзя отменить.",
+                    )
+                  ) {
+                    handleClearAll();
+                  }
+                }}
+                className="rounded-lg px-2.5 py-1 text-xs text-white/40 transition hover:bg-red-500/15 hover:text-red-300"
+              >
+                Очистить всё
+              </button>
+            )}
+          </div>
           {history.length === 0 ? (
             <p className="py-6 text-center text-sm text-white/40">Пока пусто</p>
           ) : (
